@@ -80,37 +80,87 @@ def get_tab_detail():
         try:
             url_dict = {}
             url_dict['selector'] = {}
-            logging.info("start to crawle url %s,first title is %s, second title is %s, third title is %s" 
-            % (url['third_title_url'], name_map[url['fisrt_title']], url['second_title'], url['third_title']))
+            fourth_title_url = {}
+            logging.info("start to crawle url %s,first title is %s, second title is %s, third title is %s" % (url['third_title_url'], name_map[url['fisrt_title']], url['second_title'], url['third_title']))
             ip_proxy = get_proxy()
             resp = requests.get(url=url['third_title_url'], headers=chrome_header, timeout=5, proxies=ip_proxy)
-            
-            page = etree.HTML(resp.content)
-            if page.xpath('//*[@id="J_selector"]/div[@class="J_selectorLine s-line J_selectorFold"]'):
-                for tab in page.xpath('//*[@id="J_selector"]/div[@class="J_selectorLine s-line J_selectorFold"]'):
-                    if u'价格' in tab.xpath('div/div[@class="sl-key"]/span/text()')[0] 
-                        or u'大家说' in tab.xpath('div/div[@class="sl-key"]/span/text()')[0]:
-                        continue
-                    else:
-                        kind = tab.xpath('div/div[@class="sl-key"]/span/text()')[0]
-                        kind_type = tab.xpath('div/div[@class="sl-value"]/div/ul/li/a/text()')
-                        url_dict['selector'][kind] = kind_type
 
+            page = etree.HTML(resp.content)
+            url_dict[u'第一分类'] = name_map[url['fisrt_title']]
+            url_dict[u'第二分类'] = url['second_title']
+            url_dict[u'第三分类'] = url['third_title']
+            url_dict[u'第四分类'] = ''
             if re.search(r'other_exts =(.*)?;', resp.content):
                 result = re.search(r'other_exts =(.*)?;', resp.content)
                 other_exts = result.group(1)
                 exts = json.loads(other_exts)
                 for kind in exts:
+                    if u'大家说' in kind['name']:
+                        continue
                     url_dict['selector'][kind['name']] = [i.strip() for i in kind['value_name'].split(';')]
-
-            url_dict[u'第一分类'] = name_map[url['fisrt_title']]
-            url_dict[u'第二分类'] = url['second_title']
-            url_dict[u'第三分类'] = url['third_title']
+                    if u'分类' in kind['name']:
+                        name_id = kind['id']
+                        value_id = [i.strip() for i in kind['value_id'].split(';')]
+                        for ids in value_id:
+                            fourth_title_url[[i.strip() for i in kind['value_name'].split(';')][value_id.index(ids)]] = (url['third_title_url'] + u'&ev={0}_{1}&sort=sort_totalsales15_desc&trans=1&JL=3_分类_{2}#J_crumbsBar'.format(name_id, ids, [i.strip() for i in kind['value_name'].split(';')][value_id.index(ids)]))
+            if page.xpath('//*[@id="J_selector"]/div[@class="J_selectorLine s-line J_selectorFold"]'):
+                for tab in page.xpath('//*[@id="J_selector"]/div[@class="J_selectorLine s-line J_selectorFold"]'):
+                    if u'价格' in tab.xpath('div/div[@class="sl-key"]/span/text()')[0] or u'大家说' in tab.xpath('div/div[@class="sl-key"]/span/text()')[0]:
+                        continue
+                    else:
+                        kind = tab.xpath('div/div[@class="sl-key"]/span/text()')[0]
+                        kind_type = tab.xpath('div/div[@class="sl-value"]/div/ul/li/a/text()')
+                        url_dict['selector'][kind] = kind_type
+                        if u'分类' in kind:
+                            text_list = tab.xpath('div/div[@class="sl-value"]/div/ul/li/a/text()')    
+                            fourth_title = [u'https://list.jd.com' + i for i in tab.xpath('div/div[@class="sl-value"]/div/ul/li/a/@href')]
+                            for text in text_list:
+                                fourth_title_url[text] = fourth_title[text_list.index(text)]
             url_dict['url_link'] = url['third_title_url']
             jd_crawler.jd_type.insert(url_dict)
             logging.info("success deal url %s" % url['third_title_url'])
+            for fouth_url in fourth_title_url:
+                get_fourth_detail(name_map[url['fisrt_title']], url['second_title'], url['third_title'], fouth_url, fourth_title_url[fouth_url])
         except Exception as E:
             logging.error('error,url is %s first title is %s, second title is %s' % (url['third_title_url'], name_map[url['fisrt_title']], url['second_title']))
+
+
+def get_fourth_detail(first, second, third, fouth, url):
+    try:
+        url_dict = {}
+        url_dict['selector'] = {}
+        logging.info("start to crawle url %s,first title is %s, second title is %s, third title is %s, fouth title is %s" % (url, first, second, third, fouth))
+        ip_proxy = get_proxy()
+        resp = requests.get(url=url, headers=chrome_header, timeout=5, proxies=ip_proxy)
+
+        page = etree.HTML(resp.content)
+        url_dict[u'第一分类'] = first
+        url_dict[u'第二分类'] = second
+        url_dict[u'第三分类'] = third
+        url_dict[u'第四分类'] = fouth
+        if re.search(r'other_exts =(.*)?;', resp.content):
+            result = re.search(r'other_exts =(.*)?;', resp.content)
+            other_exts = result.group(1)
+            exts = json.loads(other_exts)
+            for kind in exts:
+                if u'大家说' in kind['name']:
+                    continue
+                url_dict['selector'][kind['name']] = [i.strip() for i in kind['value_name'].split(';')]
+
+        if page.xpath('//*[@id="J_selector"]/div[@class="J_selectorLine s-line J_selectorFold"]'):
+            for tab in page.xpath('//*[@id="J_selector"]/div[@class="J_selectorLine s-line J_selectorFold"]'):
+                if u'价格' in tab.xpath('div/div[@class="sl-key"]/span/text()')[0] or u'大家说' in tab.xpath('div/div[@class="sl-key"]/span/text()')[0]:
+                    continue
+                else:
+                    kind = tab.xpath('div/div[@class="sl-key"]/span/text()')[0]
+                    kind_type = tab.xpath('div/div[@class="sl-value"]/div/ul/li/a/text()')
+                    url_dict['selector'][kind] = kind_type
+
+        url_dict['url_link'] = url
+        jd_crawler.jd_type.insert(url_dict)
+        logging.info("success deal url %s" % url)
+    except Exception as E:
+        logging.info("error! url %s,first title is %s, second title is %s, third title is %s, fouth title is %s" % (url, first, second, third, fouth))
 
 
 if __name__ == "__main__":

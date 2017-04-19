@@ -149,17 +149,18 @@ def get_detail(self, url_info):
     try:
         ip_proxy = get_proxy()
         type_detail['url_link'] = url_info['url_link']
-        type_detail['first_title'] = url_info['first_title']
-        type_detail['second_title'] = url_info['second_title']
-        type_detail['third_title'] = url_info['third_title']
+        type_detail[u'第一分类'] = url_info['first_title']
+        type_detail[u'第二分类'] = url_info['second_title']
+        type_detail[u'第三分类'] = url_info['third_title']
+        type_detail['selector'] = {}
         resp = requests.get(url_info['url_link'], headers=chrome_header, timeout=5, proxies=ip_proxy)
         page = etree.HTML(resp.content)
         for div_list in page.xpath('//div[@class="m-classify property z-cat3 clearfix j-box"]'):
             if u'其他' in div_list.xpath('div[@class="name"]/text()')[0]:
                 for other in div_list.xpath('//div[@class="attr-items all ctag"]/a'):
-                    type_detail[other.xpath('text()')[0]] = div_list.xpath('//div[@class="dropdownlist-content j-tagwrap"]')[div_list.xpath('//div[@class="attr-items all ctag"]/a').index(other)].xpath('div//a/text()')
+                    type_detail['selector'][other.xpath('text()')[0]] = div_list.xpath('//div[@class="dropdownlist-content j-tagwrap"]')[div_list.xpath('//div[@class="attr-items all ctag"]/a').index(other)].xpath('div//a/text()')
             else:
-                type_detail[div_list.xpath('div[@class="name"]/text()')[0]] = div_list.xpath('div//a/text()')
+                type_detail['selector'][div_list.xpath('div[@class="name"]/text()')[0]] = div_list.xpath('div//a/text()')
         kaola_crawler.kaola_type.insert(type_detail)
         return True
     except Exception as e:
